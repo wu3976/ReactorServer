@@ -41,7 +41,7 @@ unsigned short parsecmd(int argc, char **argv, string &ipout) {
 }
 
 // Set the socket to non-blocking mode
-void setnonblocking(int fd) {
+/*void setnonblocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1) {
         std::cerr << "Error getting socket flags" << std::endl;
@@ -53,11 +53,11 @@ void setnonblocking(int fd) {
         close(fd);
         exit(1);
     }
-}
+}*/
 
 // create a socket and set to nonblocking
 int create_socket() {
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
     if (fd == -1) {
         perror("socket()");
         exit(1);
@@ -69,8 +69,6 @@ int create_socket() {
     setsockopt(fd,SOL_SOCKET,SO_REUSEPORT ,&opt,static_cast<socklen_t>(sizeof opt)); 
     setsockopt(fd,SOL_SOCKET,SO_KEEPALIVE   ,&opt,static_cast<socklen_t>(sizeof opt));
     
-    setnonblocking(fd);
-
     return fd;
 }
 
@@ -130,18 +128,17 @@ int main(int argc, char **argv) {
             continue;
         }
         for (int i = 0; i < numevent; i++) {
-            if (eventbuf[i].data.fd == listenfd) { // listenfd have pending connection
-                sockaddr_in clientaddr; 
-                socklen_t clientaddrsz;
-                int commfd = accept(listenfd, (sockaddr *)&clientaddr, &clientaddrsz);
-                if (commfd == -1) { perror("accept()"); exit(1); }
-                setnonblocking(commfd);
-                printf ("accept client(fd=%d,ip=%s,port=%d) ok.\n",
-                        commfd, inet_ntoa(clientaddr.sin_addr), 
-                        ntohs(clientaddr.sin_port));
-                epoll_add_event(epfd, EPOLLIN, commfd);
-            } else { // comm sockets has event
-                if (eventbuf[i].events & (EPOLLIN | EPOLLPRI)) {
+            if (eventbuf[i].events & (EPOLLIN | EPOLLPRI)) {
+                if (eventbuf[i].data.fd == listenfd) { // listenfd have pending connection
+                    sockaddr_in clientaddr; 
+                    socklen_t clientaddrsz;
+                    int commfd = accept4(listenfd, (sockaddr *)&clientaddr, &clientaddrsz, SOCK_NONBLOCK);
+                    if (commfd == -1) { perror("accept()"); exit(1); }
+                    printf ("accept client(fd=%d,ip=%s,port=%d) ok.\n",
+                            commfd, inet_ntoa(clientaddr.sin_addr), 
+                            ntohs(clientaddr.sin_port));
+                    epoll_add_event(epfd, EPOLLIN, commfd);
+                } else {
                     char buffer[READBUFCAP];
                     while (true) {
                         memset(buffer, 0, sizeof(buffer));
@@ -159,14 +156,16 @@ int main(int argc, char **argv) {
                             send(eventbuf[i].data.fd, buffer, strlen(buffer), 0);
                         }
                     }
-                } else if (eventbuf[i].events & EPOLLRDHUP) {
-                    printf("client: fd=%d disconnected with EPOLLRDHUP\n", eventbuf[i].data.fd);
-                    close(eventbuf[i].data.fd); // automatically delete event in eventbuf
-                } else if (eventbuf[i].events & EPOLLOUT) {}
-                else {
-                    printf("client: fd=%d error with unknown event\n", eventbuf[i].data.fd);
-                    close(eventbuf[i].data.fd); // automatically delete event in eventbuf
                 }
+            } 
+            else if (eventbuf[i].events & EPOLLRDHUP) {
+                printf("client: fd=%d disconnected with EPOLLRDHUP\n", eventbuf[i].data.fd);
+                close(eventbuf[i].data.fd); // automatically delete event in eventbuf
+            } 
+            else if (eventbuf[i].events & EPOLLOUT) {}
+            else {
+                printf("client: fd=%d error with unknown event\n", eventbuf[i].data.fd);
+                close(eventbuf[i].data.fd); // automatically delete event in eventbuf
             }
         }
     }
