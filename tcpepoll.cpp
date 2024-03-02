@@ -20,6 +20,7 @@
 #include <arpa/inet.h>
 #include <sys/epoll.h>
 #include <netinet/tcp.h>
+#include "InetAddr.h"
 
 #define EVENTBUFCAP 10
 #define READBUFCAP 1024
@@ -72,13 +73,9 @@ int create_socket() {
     return fd;
 }
 
-void bind_socket(int fd, const char *ip, unsigned short port) {
-    sockaddr_in sin;
-    memset(&sin, 0, sizeof(sin));
-    sin.sin_family = AF_INET;
-    sin.sin_port = htons(port);
-    sin.sin_addr.s_addr = inet_addr(ip);
-    if (bind(fd, (sockaddr *)&sin, sizeof(sin)) == -1) {
+void bind_socket(int fd, string &ip, unsigned short port) {
+    InetAddr addr(ip, port);
+    if (bind(fd, addr.get_addrref(), sizeof(sockaddr)) == -1) {
         perror("bind()");
         exit(1);
     }
@@ -106,7 +103,7 @@ int main(int argc, char **argv) {
     string ip;
     unsigned short port = parsecmd(argc, argv, ip);
     int listenfd = create_socket();
-    bind_socket(listenfd, ip.c_str(), port);
+    bind_socket(listenfd, ip, port);
     listen_socket(listenfd);
 
     int epfd = epoll_create(1); // epoll instance
@@ -130,13 +127,13 @@ int main(int argc, char **argv) {
         for (int i = 0; i < numevent; i++) {
             if (eventbuf[i].events & (EPOLLIN | EPOLLPRI)) {
                 if (eventbuf[i].data.fd == listenfd) { // listenfd have pending connection
-                    sockaddr_in clientaddr; 
-                    socklen_t clientaddrsz;
-                    int commfd = accept4(listenfd, (sockaddr *)&clientaddr, &clientaddrsz, SOCK_NONBLOCK);
+                    sockaddr_in peeraddr; 
+                    socklen_t peeraddrsz;
+                    int commfd = accept4(listenfd, (sockaddr *)&peeraddr, &peeraddrsz, SOCK_NONBLOCK);
                     if (commfd == -1) { perror("accept()"); exit(1); }
+                    InetAddr clientaddr(peeraddr);
                     printf ("accept client(fd=%d,ip=%s,port=%d) ok.\n",
-                            commfd, inet_ntoa(clientaddr.sin_addr), 
-                            ntohs(clientaddr.sin_port));
+                            commfd, clientaddr.get_ip(), clientaddr.get_port());
                     epoll_add_event(epfd, EPOLLIN, commfd);
                 } else {
                     char buffer[READBUFCAP];
