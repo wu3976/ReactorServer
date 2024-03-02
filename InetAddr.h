@@ -11,6 +11,8 @@ private:
     sockaddr_in addr_;
 public:
     // ctors abd dtors
+    InetAddr();
+    
     InetAddr(const std::string &ip, uint16_t port);
     
     InetAddr(const sockaddr_in addr);
@@ -23,5 +25,7 @@ public:
     uint16_t get_port() const;
     
     const sockaddr *get_addrref() const;
+
+    void setaddr(sockaddr_in addr);
 };
 

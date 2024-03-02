@@ -2,7 +2,7 @@
 SERVEREXEC=server
 CLIENTEXEC=client
 TARGETS=$(SERVEREXEC) $(CLIENTEXEC)
-SERVERFILES=tcpepoll.cpp InetAddr.cpp
+SERVERFILES=tcpepoll.cpp InetAddr.cpp Socket.cpp
 CLIENTFILES=client.cpp
 DEBUG=-g
 

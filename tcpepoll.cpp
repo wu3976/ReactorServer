@@ -1,13 +1,3 @@
-/*
-1. create a listen socket --done
-2. set socket to non-blocking --done
-3. bind & listen --done
-4. create epoll
-5. create event loop, deal with accept and comm events
-6. accept: add new socket events to epoll
-7. comm: readable / writable events. deal with comm
-*/
-
 #include <stdio.h>
 #include <iostream>
 #include <stdlib.h>
@@ -21,6 +11,7 @@
 #include <sys/epoll.h>
 #include <netinet/tcp.h>
 #include "InetAddr.h"
+#include "Socket.h"
 
 #define EVENTBUFCAP 10
 #define READBUFCAP 1024
@@ -41,22 +32,8 @@ unsigned short parsecmd(int argc, char **argv, string &ipout) {
     return (unsigned short)port;
 }
 
-// Set the socket to non-blocking mode
-/*void setnonblocking(int fd) {
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1) {
-        std::cerr << "Error getting socket flags" << std::endl;
-        close(fd);
-        exit(1);
-    }
-    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        std::cerr << "Error setting socket to non-blocking mode" << std::endl;
-        close(fd);
-        exit(1);
-    }
-}*/
-
 // create a socket and set to nonblocking
+/*
 int create_socket() {
     int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
     if (fd == -1) {
@@ -86,7 +63,7 @@ void listen_socket(int fd) {
         perror("listen()");
         exit(1);
     }
-}
+}*/
 
 void epoll_add_event(int epfd, int eventdesc, int fd) {
     epoll_event evt;
@@ -102,14 +79,23 @@ void epoll_add_event(int epfd, int eventdesc, int fd) {
 int main(int argc, char **argv) {
     string ip;
     unsigned short port = parsecmd(argc, argv, ip);
+    /*
     int listenfd = create_socket();
     bind_socket(listenfd, ip, port);
-    listen_socket(listenfd);
+    listen_socket(listenfd);*/
+    Socket servsock(create_nonblocking_socket());
+    InetAddr servaddr(ip, port);
+    servsock.setreuseaddr(true);
+    servsock.settcpnodelay(true);
+    servsock.setreuseport(true);
+    servsock.setkeepalive(true);
+    servsock.bind_addr(servaddr);
+    servsock.listen_conn();
 
     int epfd = epoll_create(1); // epoll instance
 
     // listen socket events
-    epoll_add_event(epfd, EPOLLIN, listenfd);
+    epoll_add_event(epfd, EPOLLIN, servsock.get_fd());
 
     // create a epoll event buffer
     epoll_event eventbuf[EVENTBUFCAP];
@@ -126,15 +112,16 @@ int main(int argc, char **argv) {
         }
         for (int i = 0; i < numevent; i++) {
             if (eventbuf[i].events & (EPOLLIN | EPOLLPRI)) {
-                if (eventbuf[i].data.fd == listenfd) { // listenfd have pending connection
-                    sockaddr_in peeraddr; 
-                    socklen_t peeraddrsz;
-                    int commfd = accept4(listenfd, (sockaddr *)&peeraddr, &peeraddrsz, SOCK_NONBLOCK);
-                    if (commfd == -1) { perror("accept()"); exit(1); }
-                    InetAddr clientaddr(peeraddr);
+                if (eventbuf[i].data.fd == servsock.get_fd()) { // listenfd have pending connection
+                    //sockaddr_in peeraddr; 
+                    //socklen_t peeraddrsz;
+                    //int commfd = accept4(listenfd, (sockaddr *)&peeraddr, &peeraddrsz, SOCK_NONBLOCK);
+                    //if (commfd == -1) { perror("accept()"); exit(1); }
+                    InetAddr clientaddr;
+                    Socket *clientsock = new Socket(servsock.accept_nbconn(clientaddr));
                     printf ("accept client(fd=%d,ip=%s,port=%d) ok.\n",
-                            commfd, clientaddr.get_ip(), clientaddr.get_port());
-                    epoll_add_event(epfd, EPOLLIN, commfd);
+                            clientsock->get_fd(), clientaddr.get_ip(), clientaddr.get_port());
+                    epoll_add_event(epfd, EPOLLIN, clientsock->get_fd());
                 } else {
                     char buffer[READBUFCAP];
                     while (true) {
