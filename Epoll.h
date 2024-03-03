@@ -8,6 +8,9 @@
 #include <sys/epoll.h>
 #include <vector>
 #include <unistd.h>
+#include "Channel.h"
+
+class Channel;
 
 // a epoll class
 class Epoll {
@@ -26,8 +29,9 @@ public:
     ~Epoll();
 
     // add socket and its event type to be waited
-    void add_fdevent(int fd, uint32_t event_type);
-
+    //void add_fdevent(int fd, uint32_t event_type);
+    void updateChannel(Channel *ch);
     // wait until events occur
-    std::vector<epoll_event> loop(int timeout=-1);
+    //std::vector<epoll_event> loop(int timeout=-1);
+    std::vector<Channel *> loop(int timeout=-1);
 };
