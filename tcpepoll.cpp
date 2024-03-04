@@ -48,7 +48,9 @@ int main(int argc, char **argv) {
     printf("listening connections at %s:%d\n", 
             servaddr.get_ip(), servaddr.get_port());
     Epoll ep;
-    Channel *servchannel = new Channel(&ep, servsock.get_fd(), true);
+    Channel *servchannel = new Channel(&ep, servsock.get_fd());
+    servchannel->set_readcallback(std::bind(&Channel::newconnection, 
+            servchannel, &servsock));
     servchannel->enable_reading();
     
     while (true) {
@@ -56,48 +58,7 @@ int main(int argc, char **argv) {
         std::vector<Channel *> channels = ep.loop();
         for (auto &ch : channels) 
         {
-            ch->handle_event(&servsock);
-            /*
-            if (ch->get_revents() & (EPOLLIN | EPOLLPRI)) {
-                if (ch == servchannel) { // listenfd have pending connection
-                    InetAddr clientaddr;
-                    Socket *clientsock = new Socket(servsock.accept_nbconn(clientaddr));
-                    printf ("accept client(fd=%d,ip=%s,port=%d) ok.\n",
-                            clientsock->get_fd(), clientaddr.get_ip(), clientaddr.get_port());
-                    Channel *clichannel = new Channel(&ep, clientsock->get_fd(), false);
-                    clichannel->use_ET();
-                    clichannel->enable_reading();
-                    
-                } else {
-                    char buffer[CHAN_READBUFCAP];
-                    while (true) {
-                        memset(buffer, 0, sizeof(buffer));
-                        int bytesred = recv(ch->get_fd(), buffer, CHAN_READBUFCAP, 0);
-                        if (bytesred == 0) { // client closes the socket
-                            printf("client: fd=%d disconnected with 0 byte\n", ch->get_fd());
-                            close(ch->get_fd()); // automatically delete event in eventbuf
-                            break;
-                        } else if (bytesred == -1) {
-                            if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) { break; }
-                            perror("recv()");
-                            exit(1);
-                        } else {
-                            printf("Received from fd=%d: %s\n", ch->get_fd(), buffer);
-                            send(ch->get_fd(), buffer, strlen(buffer), 0);
-                        }
-                    }
-                }
-            } 
-            else if (ch->get_revents() & EPOLLRDHUP) {
-                printf("client: fd=%d disconnected with EPOLLRDHUP\n", ch->get_fd());
-                close(ch->get_fd()); // automatically delete event in eventbuf
-            } 
-            else if (ch->get_revents() & EPOLLOUT) {}
-            else {
-                printf("client: fd=%d error with unknown event\n", ch->get_fd());
-                close(ch->get_fd()); // automatically delete event in eventbuf
-            }
-            */
+            ch->handle_event();
         }
     }
 }

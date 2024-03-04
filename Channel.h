@@ -1,5 +1,6 @@
 #pragma once
 #include <sys/epoll.h>
+#include <functional>
 #include "Epoll.h"
 #include "Socket.h"
 
@@ -14,11 +15,11 @@ private:
     bool inepl_ = false; // whether this channel is on the epoll tree
     uint32_t events_ = 0; // the events need to be monitored
     uint32_t revents_ = 0; // happened events
-    bool islisten_ = false;
+    std::function<void()> readcallback_;
 
 public:
     // ctors and dtors
-    Channel(Epoll *ep, int fd, bool islisten);
+    Channel(Epoll *ep, int fd);
     
     ~Channel();
 
@@ -47,6 +48,14 @@ public:
     uint32_t get_revents();
 
     //handle events returned from epoll_wait
-    void handle_event(Socket *servsock);
+    void handle_event();
 
+    // handle new connection request from listen channel
+    void newconnection(Socket *servsock);
+
+    // handle client message from comm channel
+    void onmessage();
+
+    // set the callback function
+    void set_readcallback(std::function<void()> fn);
 };
