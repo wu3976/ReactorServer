@@ -14,6 +14,7 @@
 #include "Socket.h"
 #include "Epoll.h"
 #include "Channel.h"
+#include "Eventloop.h"
 
 #define EVENTBUFCAP 10
 #define READBUFCAP 1024
@@ -47,18 +48,11 @@ int main(int argc, char **argv) {
     servsock.listen_conn();
     printf("listening connections at %s:%d\n", 
             servaddr.get_ip(), servaddr.get_port());
-    Epoll ep;
-    Channel *servchannel = new Channel(&ep, servsock.get_fd());
+    // Epoll ep;
+    Eventloop evlp;
+    Channel *servchannel = new Channel(evlp.get_ep(), servsock.get_fd());
     servchannel->set_readcallback(std::bind(&Channel::newconnection, 
             servchannel, &servsock));
     servchannel->enable_reading();
-    
-    while (true) {
-        //std::vector<epoll_event> events;
-        std::vector<Channel *> channels = ep.loop();
-        for (auto &ch : channels) 
-        {
-            ch->handle_event();
-        }
-    }
+    evlp.run();
 }
