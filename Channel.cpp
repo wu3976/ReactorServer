@@ -3,7 +3,7 @@
 #include "Socket.h"
 #include <sys/epoll.h>
 
-Channel::Channel(Epoll *ep, int fd) : ep_(ep), fd_(fd){}
+Channel::Channel(Eventloop *evtlp, int fd) : evtlp_(evtlp), fd_(fd){}
 
 // do not close ep_ and fd_
 Channel::~Channel() {}
@@ -18,7 +18,7 @@ void Channel::use_ET() {
 
 void Channel::enable_reading(){
     events_ |= EPOLLIN;
-    ep_->updateChannel(this);
+    evtlp_->updatechannel(this);
 }
 
 void Channel::set_inepl() {
@@ -61,7 +61,7 @@ void Channel::newconnection(Socket *servsock) {
     Socket *clientsock = new Socket(servsock->accept_nbconn(clientaddr));
     printf ("accept client(fd=%d,ip=%s,port=%d) ok.\n",
             clientsock->get_fd(), clientaddr.get_ip(), clientaddr.get_port());
-    Channel *clichannel = new Channel(ep_, clientsock->get_fd());
+    Channel *clichannel = new Channel(evtlp_, clientsock->get_fd());
     clichannel->set_readcallback(std::bind(&Channel::onmessage, clichannel));
     clichannel->use_ET();
     clichannel->enable_reading();

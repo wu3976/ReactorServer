@@ -2,16 +2,18 @@
 #include <sys/epoll.h>
 #include <functional>
 #include "Epoll.h"
+#include "Eventloop.h"
 #include "Socket.h"
 
 #define CHAN_READBUFCAP 1024
 
-class Epoll;
+//class Epoll;
+class Eventloop;
 
 class Channel {
 private:
     int fd_ = -1; // channel's socket desc (view)
-    Epoll *ep_ = nullptr; // pointer to the epoll instance which has the channel (view)
+    Eventloop *evtlp_ = nullptr; // pointer to the epoll instance which has the channel (view)
     bool inepl_ = false; // whether this channel is on the epoll tree
     uint32_t events_ = 0; // the events need to be monitored
     uint32_t revents_ = 0; // happened events
@@ -19,7 +21,7 @@ private:
 
 public:
     // ctors and dtors
-    Channel(Epoll *ep, int fd);
+    Channel(Eventloop *evtlp, int fd);
     
     ~Channel();
 

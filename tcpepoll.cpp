@@ -1,5 +1,4 @@
-#include <stdio.h>
-#include <iostream>
+/*#include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>         
 #include <sys/socket.h>
@@ -9,12 +8,14 @@
 #include <cstring>
 #include <arpa/inet.h>
 #include <sys/epoll.h>
-#include <netinet/tcp.h>
+#include <netinet/tcp.h>*/
+#include <iostream>
 #include "InetAddr.h"
 #include "Socket.h"
 #include "Epoll.h"
 #include "Channel.h"
 #include "Eventloop.h"
+#include "TCPServer.h"
 
 #define EVENTBUFCAP 10
 #define READBUFCAP 1024
@@ -38,6 +39,8 @@ unsigned short parsecmd(int argc, char **argv, string &ipout) {
 int main(int argc, char **argv) {
     string ip;
     unsigned short port = parsecmd(argc, argv, ip);
+    TCPServer tcpserver(ip, port);
+    /*
     Socket servsock(create_nonblocking_socket());
     InetAddr servaddr(ip, port);
     servsock.setreuseaddr(true);
@@ -54,5 +57,7 @@ int main(int argc, char **argv) {
     servchannel->set_readcallback(std::bind(&Channel::newconnection, 
             servchannel, &servsock));
     servchannel->enable_reading();
-    evlp.run();
+    */
+    tcpserver.start();
+    return 0;
 }
