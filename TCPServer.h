@@ -2,11 +2,13 @@
 #include "Eventloop.h"
 #include "Socket.h"
 #include "Channel.h"
+#include "Acceptor.h"
 #include <string>
 
 class TCPServer {
 private:
     Eventloop evtlp_;
+    Acceptor *acptor_;  
 
 public:
     // ctor and dtors 
